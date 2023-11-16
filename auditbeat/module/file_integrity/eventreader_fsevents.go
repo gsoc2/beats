@@ -31,7 +31,7 @@ import (
 	"github.com/elastic/elastic-agent-libs/logp"
 )
 
-type fsreader struct {
+type fsEventsReader struct {
 	stream      *fsevents.EventStream
 	config      Config
 	eventC      chan Event
@@ -129,7 +129,7 @@ func NewEventReader(c Config) (EventProducer, error) {
 	}, nil
 }
 
-func (r *fsreader) Start(done <-chan struct{}) (<-chan Event, error) {
+func (r *fsEventsReader) Start(done <-chan struct{}) (<-chan Event, error) {
 	r.stream.Start()
 	go r.consumeEvents(done)
 	r.log.Infow("Started FSEvents watcher",
@@ -138,7 +138,7 @@ func (r *fsreader) Start(done <-chan struct{}) (<-chan Event, error) {
 	return r.eventC, nil
 }
 
-func (r *fsreader) consumeEvents(done <-chan struct{}) {
+func (r *fsEventsReader) consumeEvents(done <-chan struct{}) {
 	defer close(r.eventC)
 	defer r.stream.Stop()
 
@@ -209,7 +209,7 @@ func getFileInfo(path string) (os.FileInfo, error) {
 	return info, fmt.Errorf("failed to stat: %w", err)
 }
 
-func (r *fsreader) isWatched(path string) bool {
+func (r *fsEventsReader) isWatched(path string) bool {
 	if r.config.Recursive {
 		return true
 	}

@@ -43,6 +43,7 @@ import (
 
 	"github.com/elastic/beats/v7/libbeat/common/file"
 	"github.com/elastic/beats/v7/metricbeat/mb"
+	"github.com/elastic/ebpfevents"
 	"github.com/elastic/elastic-agent-libs/mapstr"
 )
 
@@ -65,11 +66,14 @@ const (
 	// SourceFSNotify identifies events triggered by a notification from the
 	// file system.
 	SourceFSNotify
+	// SourceEBPF identifies events triggered by an eBPF program.
+	SourceEBPF
 )
 
 var sourceNames = map[Source]string{
 	SourceScan:     "scan",
 	SourceFSNotify: "fsnotify",
+	SourceEBPF:     "ebpf",
 }
 
 // Type identifies the file type (e.g. dir, file, symlink).
@@ -91,12 +95,20 @@ const (
 	FileType
 	DirType
 	SymlinkType
+	CharDeviceType
+	BlockDeviceType
+	FIFOType
+	SocketType
 )
 
 var typeNames = map[Type]string{
-	FileType:    "file",
-	DirType:     "dir",
-	SymlinkType: "symlink",
+	FileType:        "file",
+	DirType:         "dir",
+	SymlinkType:     "symlink",
+	CharDeviceType:  "char_device",
+	BlockDeviceType: "block_device",
+	FIFOType:        "fifo",
+	SocketType:      "socket",
 }
 
 // Digest is an output of a hash function.
@@ -189,34 +201,38 @@ func NewEventFromFileInfo(
 
 	switch event.Info.Type {
 	case FileType:
-		if event.Info.Size <= maxFileSize {
-			hashes, nbytes, err := hashFile(event.Path, maxFileSize, hashTypes...)
-			if err != nil {
-				event.errors = append(event.errors, err)
-				event.hashFailed = true
-			} else if hashes != nil {
-				// hashFile returns nil hashes and no error when:
-				// - There's no hashes configured.
-				// - File size at the time of hashing is larger than configured limit.
-				event.Hashes = hashes
-				event.Info.Size = nbytes
-			}
-
-			if len(fileParsers) != 0 && event.ParserResults == nil {
-				event.ParserResults = make(mapstr.M)
-			}
-			for _, p := range fileParsers {
-				err = p.Parse(event.ParserResults, path)
-				if err != nil {
-					event.errors = append(event.errors, err)
-				}
-			}
-		}
+		fillHashes(&event, path, maxFileSize, hashTypes, fileParsers)
 	case SymlinkType:
 		event.TargetPath, _ = filepath.EvalSymlinks(event.Path)
 	}
 
 	return event
+}
+
+func fillHashes(event *Event, path string, maxFileSize uint64, hashTypes []HashType, fileParsers []FileParser) {
+	if event.Info.Size <= maxFileSize {
+		hashes, nbytes, err := hashFile(event.Path, maxFileSize, hashTypes...)
+		if err != nil {
+			event.errors = append(event.errors, err)
+			event.hashFailed = true
+		} else if hashes != nil {
+			// hashFile returns nil hashes and no error when:
+			// - There's no hashes configured.
+			// - File size at the time of hashing is larger than configured limit.
+			event.Hashes = hashes
+			event.Info.Size = nbytes
+		}
+
+		if len(fileParsers) != 0 && event.ParserResults == nil {
+			event.ParserResults = make(mapstr.M)
+		}
+		for _, p := range fileParsers {
+			err = p.Parse(event.ParserResults, path)
+			if err != nil {
+				event.errors = append(event.errors, err)
+			}
+		}
+	}
 }
 
 // NewEvent creates a new Event. Any errors that occur are included in the
@@ -239,6 +255,61 @@ func NewEvent(
 		}
 	}
 	return NewEventFromFileInfo(path, info, err, action, source, maxFileSize, hashTypes, fileParsers)
+}
+
+// NewEventFromEbpfEvent creates a new Event from an ebpfevents.Event.
+func NewEventFromEbpfEvent(
+	ee ebpfevents.Event,
+	maxFileSize uint64,
+	hashTypes []HashType,
+	fileParsers []FileParser,
+) Event {
+	var (
+		path, target string
+		action       Action
+		metadata     Metadata
+	)
+	switch ee.Type {
+	case ebpfevents.EventTypeFileCreate:
+		action = Created
+
+		fileCreateEvent := ee.Body.(*ebpfevents.FileCreate)
+		path = fileCreateEvent.Path
+		target = fileCreateEvent.SymlinkTargetPath
+		metadata = metadataFromFileCreate(fileCreateEvent)
+	case ebpfevents.EventTypeFileRename:
+		action = Updated
+
+		fileRenameEvent := ee.Body.(*ebpfevents.FileRename)
+		path = fileRenameEvent.NewPath
+		target = fileRenameEvent.SymlinkTargetPath
+		metadata = metadataFromFileRename(fileRenameEvent)
+	case ebpfevents.EventTypeFileDelete:
+		action = Deleted
+
+		fileDeleteEvent := ee.Body.(*ebpfevents.FileDelete)
+		path = fileDeleteEvent.Path
+		target = fileDeleteEvent.SymlinkTargetPath
+		metadata = metadataFromFileDelete(fileDeleteEvent)
+	}
+
+	event := Event{
+		Timestamp:  time.Now().UTC(),
+		Path:       path,
+		TargetPath: target,
+		Info:       &metadata,
+		Source:     SourceEBPF,
+		Action:     action,
+	}
+
+	switch event.Info.Type {
+	case FileType:
+		fillHashes(&event, path, maxFileSize, hashTypes, fileParsers)
+	case SymlinkType:
+		event.TargetPath, _ = filepath.EvalSymlinks(event.Path)
+	}
+
+	return event
 }
 
 func isASCIILetter(letter byte) bool {

@@ -116,6 +116,11 @@ auditbeat.modules:
   # Set to true to publish fields with null values in events.
   #keep_null: false
 
+  # Select the backend which will be used to source events.
+  # Valid values: ebpf, fsnotify.
+  # Default: fsnotify.
+  force_backend: fsnotify
+
   # Parse detailed information for the listed fields. Field paths in the list below
   # that are a prefix of other field paths imply the longer field path. A set of
   # fields may be specified using an RE2 regular expression quoted in //. For example
@@ -1785,4 +1790,3 @@ logging.files:
 #features:
 #  fqdn:
 #    enabled: true
-

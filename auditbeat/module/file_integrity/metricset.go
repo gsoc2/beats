@@ -71,10 +71,10 @@ type MetricSet struct {
 	log     *logp.Logger
 
 	// Runtime params that are initialized on Run().
-	bucket       datastore.BoltBucket
-	scanStart    time.Time
-	scanChan     <-chan Event
-	fsnotifyChan <-chan Event
+	bucket    datastore.BoltBucket
+	scanStart time.Time
+	scanChan  <-chan Event
+	eventChan <-chan Event
 
 	// Used when a hash can't be calculated
 	nullHashes map[HashType]Digest
@@ -118,11 +118,11 @@ func (ms *MetricSet) Run(reporter mb.PushReporterV2) {
 		return
 	}
 
-	for ms.fsnotifyChan != nil || ms.scanChan != nil {
+	for ms.eventChan != nil || ms.scanChan != nil {
 		select {
-		case event, ok := <-ms.fsnotifyChan:
+		case event, ok := <-ms.eventChan:
 			if !ok {
-				ms.fsnotifyChan = nil
+				ms.eventChan = nil
 				continue
 			}
 
@@ -161,9 +161,9 @@ func (ms *MetricSet) init(reporter mb.PushReporterV2) bool {
 	}
 	ms.bucket = bucket.(datastore.BoltBucket)
 
-	ms.fsnotifyChan, err = ms.reader.Start(reporter.Done())
+	ms.eventChan, err = ms.reader.Start(reporter.Done())
 	if err != nil {
-		err = fmt.Errorf("failed to start fsnotify event producer: %w", err)
+		err = fmt.Errorf("failed to start event producer: %w", err)
 		reporter.Error(err)
 		ms.log.Errorw("Failed to initialize", "error", err)
 		return false

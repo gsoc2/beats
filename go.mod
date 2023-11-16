@@ -158,7 +158,7 @@ require (
 	golang.org/x/net v0.17.0
 	golang.org/x/oauth2 v0.10.0
 	golang.org/x/sync v0.3.0
-	golang.org/x/sys v0.13.0
+	golang.org/x/sys v0.14.1-0.20231108175955-e4099bfacb8c
 	golang.org/x/text v0.13.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.9.1
@@ -201,6 +201,7 @@ require (
 	github.com/aws/smithy-go v1.13.5
 	github.com/awslabs/kinesis-aggregation/go/v2 v2.0.0-20220623125934-28468a6701b5
 	github.com/elastic/bayeux v1.0.5
+	github.com/elastic/ebpfevents v0.0.0-20231116123029-c0d511faa878
 	github.com/elastic/elastic-agent-autodiscover v0.6.4
 	github.com/elastic/elastic-agent-libs v0.6.2
 	github.com/elastic/elastic-agent-shipper-client v0.5.1-0.20230228231646-f04347b666f3
@@ -263,6 +264,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
+	github.com/cilium/ebpf v0.12.3 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
@@ -364,7 +366,7 @@ require (
 	go.opentelemetry.io/otel v1.19.0 // indirect
 	go.opentelemetry.io/otel/metric v1.19.0 // indirect
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
-	golang.org/x/exp v0.0.0-20220921023135-46d9e7742f1e // indirect
+	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
 	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
